@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#FAFAF6" />
+<meta name="description" content="How well do you know the world? 5 daily questions. Estimate prices, percentages, and counts." />
+<meta property="og:title" content="Estimate — How well do you know the world?" />
+<meta property="og:description" content="5 daily questions. Prices, percentages, counts. How close can you get?" />
+<title>Estimate</title>
+<style>*{margin:0;padding:0}body{background:#FAFAF6}</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useEffect, useCallback, useRef} = React;
+
+
+const LIGHT = {
+  bg:"#FAFAF6",surface:"#FFFFFF",surfaceAlt:"#F5F4F0",
+  border:"#E8E5DE",borderLight:"#F0EDE6",
+  accent:"#D96B4A",accentSoft:"#D96B4A10",accentMid:"#D96B4A20",
+  text:"#1A1816",textSec:"#6B6560",textTer:"#A09A92",textQuat:"#C9C3BB",
+  track:"#ECEAE4",trackFill:"#D96B4A",
+  green:"#5D9E6F",greenBg:"#5D9E6F0D",gold:"#C4963A",goldBg:"#C4963A0D",
+  orange:"#CB7E3D",orangeBg:"#CB7E3D0D",red:"#C24B4B",redBg:"#C24B4B0D",
+  grey:"#8A8478",greyBg:"#8A84780A",
+  inputBg:"#F5F4F0",tooltipBg:"#1A1816",tooltipText:"#FAFAF6",
+};
+const DARK = {
+  bg:"#141413",surface:"#1E1E1C",surfaceAlt:"#262624",
+  border:"#333330",borderLight:"#2A2A28",
+  accent:"#E07A58",accentSoft:"#E07A5815",accentMid:"#E07A5825",
+  text:"#E8E4DD",textSec:"#A09A92",textTer:"#6B6560",textQuat:"#444440",
+  track:"#2A2A28",trackFill:"#E07A58",
+  green:"#6DB57F",greenBg:"#6DB57F12",gold:"#D4A64A",goldBg:"#D4A64A12",
+  orange:"#DB8E4D",orangeBg:"#DB8E4D12",red:"#D25B5B",redBg:"#D25B5B12",
+  grey:"#7A756E",greyBg:"#7A756E0D",
+  inputBg:"#262624",tooltipBg:"#E8E4DD",tooltipText:"#141413",
+};
+const EUR_USD = 1.09;
+const FONT = "'Figtree', sans-serif";
+const MONO = "'Source Code Pro', monospace";
+const SERIF = "'Instrument Serif', serif";
+
+const BANK = [
+  {q:"An espresso at a café in Rome",a:1.2,r:[0,8],t:12,tp:"price",s:"Numbeo avg, 2025",i:"☕",f:"In Italy, standing at the bar is cheaper than sitting at a table. Some cafés charge double for table service."},
+  {q:"A Big Mac in Switzerland (Jan 2025)",a:7.1,r:[0,20],t:15,tp:"price",s:"The Economist Big Mac Index, Jan 2025",i:"🍔",f:"That's roughly 3x the price of the same burger in Indonesia."},
+  {q:"A Big Mac in Romania (Jan 2025)",a:2.5,r:[0,12],t:20,tp:"price",s:"The Economist Big Mac Index, Jan 2025",i:"🍔",f:"Romania has one of the cheapest Big Macs in Europe, roughly on par with Turkey."},
+  {q:"A monthly Netflix Standard plan in Europe (2025)",a:13.49,r:[0,50],t:12,tp:"price",s:"Netflix EU pricing, 2025",i:"📺",f:"Netflix's first streaming-only plan launched in 2007 at $7.99. Prices have roughly doubled since."},
+  {q:"A monthly Spotify Premium subscription in Europe (2025)",a:10.99,r:[0,40],t:12,tp:"price",s:"Spotify EU pricing, 2025",i:"🎵",f:"Spotify pays artists an average of €0.003–0.005 per stream. A million streams earns roughly €4,000."},
+  {q:"A litre of petrol in Norway (2025)",a:2.1,r:[0,8],t:18,tp:"price",s:"GlobalPetrolPrices, 2025",i:"⛽",f:"Despite being one of Europe's largest oil producers, Norway taxes fuel heavily to discourage driving."},
+  {q:"A litre of petrol in Saudi Arabia (2025)",a:0.55,r:[0,5],t:25,tp:"price",s:"GlobalPetrolPrices, 2025",i:"⛽",f:"Cheaper than most bottled water in Europe.",x:1},
+  {q:"A pair of Levi's 501 jeans in France (retail, 2025)",a:99,r:[0,300],t:15,tp:"price",s:"Levi's EU retail, 2025",i:"👖",f:"The Levi's 501 was introduced in 1890 and is the best-selling jean of all time."},
+  {q:"A pint of beer in a London pub (2025)",a:6.5,r:[0,20],t:15,tp:"price",s:"Numbeo avg, 2025",i:"🍺",f:"London pint prices have roughly doubled since 2010. Outside the capital, the average is closer to £4.50."},
+  {q:"A pint of beer in Prague (2025)",a:2.2,r:[0,12],t:18,tp:"price",s:"Numbeo avg, 2025",i:"🍺",f:"The Czech Republic has the highest beer consumption per capita in the world — roughly 140 litres per person per year."},
+  {q:"A 500g loaf of white bread in Germany (2025)",a:1.4,r:[0,8],t:15,tp:"price",s:"Numbeo avg, 2025",i:"🍞",f:"Germany has over 3,000 officially registered bread varieties, more than any other country."},
+  {q:"A dozen eggs in the US (Mar 2025)",a:5.93,r:[0,20],t:18,tp:"price",s:"NIQ / BLS, Mar 2025 ($6.47)",i:"🥚",f:"US egg prices spiked due to avian flu outbreaks that killed over 100 million birds between 2022 and 2025."},
+  {q:"A cappuccino in Zurich (2025)",a:5.5,r:[0,15],t:15,tp:"price",s:"Numbeo avg, 2025",i:"☕",f:"Zurich is consistently ranked among the top 3 most expensive cities in the world."},
+  {q:"A standard croissant in a Paris bakery",a:1.3,r:[0,8],t:15,tp:"price",s:"Numbeo / local avg, 2025",i:"🥐",f:"The croissant is actually Austrian in origin. It was popularised in Paris in the early 19th century."},
+  {q:"A litre of whole milk in the UK (2025)",a:1.3,r:[0,6],t:15,tp:"price",s:"ONS / Numbeo, 2025",i:"🥛",f:"The UK drinks about 6 billion litres of milk per year. Consumption has halved since the 1970s."},
+  {q:"The original iPhone at US launch (June 2007, 8GB)",a:460,r:[0,2000],t:20,tp:"price",s:"Apple, $499 → ~€460",i:"📱",f:"Apple sold 270,000 units in the first 30 hours.",x:1},
+  {q:"An iPhone 16 Pro Max, 1TB (EU retail, 2024)",a:1959,r:[0,5000],t:10,tp:"price",s:"Apple EU pricing, 2024",i:"📱",f:"The 1TB iPhone costs more than the original Macintosh did at launch in 1984 ($2,495 in 1984 dollars)."},
+  {q:"The first iPod at US launch (Oct 2001, 5GB)",a:365,r:[0,1500],t:22,tp:"price",s:"Apple, $399 → ~€365 (2001 rate)",i:"🎧",f:"The original iPod could hold about 1,000 songs. Today, the same price buys a 256GB iPhone."},
+  {q:"A PlayStation 5 at EU launch (Nov 2020)",a:499,r:[0,1500],t:12,tp:"price",s:"Sony EU launch price",i:"🎮",f:"The PS5 sold 10 million units faster than any other PlayStation console."},
+  {q:"A Tesla Model 3 base price in Europe (2025)",a:42990,r:[0,120000],t:18,tp:"price",s:"Tesla EU configurator, 2025",i:"🚗",f:"Tesla delivered nearly 1.8 million vehicles in 2024, though growth slowed compared to previous years."},
+  {q:"A base MacBook Air M3 (EU retail, 2024)",a:1299,r:[0,4000],t:12,tp:"price",s:"Apple EU pricing, 2024",i:"💻",f:"The MacBook Air was the world's thinnest laptop when it launched in 2008 at 0.16–0.76 inches."},
+  {q:"An Apple Vision Pro (US launch, Feb 2024)",a:3250,r:[0,10000],t:20,tp:"price",s:"Apple, $3,499 → ~€3,250",i:"🥽",f:"Apple reportedly sold fewer than 500,000 units in the first year.",x:1},
+  {q:"A Samsung Galaxy S24 Ultra (EU retail, 2024)",a:1449,r:[0,4000],t:12,tp:"price",s:"Samsung EU pricing, 2024",i:"📱",f:"Samsung has been the world's largest smartphone manufacturer by volume since 2012."},
+  {q:"A Nintendo Switch at EU launch (Mar 2017)",a:329,r:[0,1000],t:15,tp:"price",s:"Nintendo EU launch price",i:"🎮",f:"The Switch has sold over 140 million units, making it one of the best-selling consoles ever."},
+  {q:"A Hermès Birkin 25 in Togo leather (EU retail, 2025)",a:8950,r:[0,60000],t:25,tp:"price",s:"Hermès EU price list, 2025",i:"👜",f:"On the resale market, pristine Birkins sell for 2-3x the retail price."},
+  {q:"A Rolex Submariner Date retail price (EU, 2025)",a:9100,r:[0,40000],t:20,tp:"price",s:"Rolex EU official price, 2025",i:"⌚",f:"The Submariner was introduced in 1953 and cost the equivalent of about €300 at the time."},
+  {q:"A first-class return flight London–New York",a:8000,r:[0,30000],t:25,tp:"price",s:"BA / airline avg, 2025",i:"✈️",f:"A first-class seat costs roughly 20x an economy ticket, though it takes up about 4x the floor space."},
+  {q:"One night at the Ritz Paris (standard room, 2025)",a:1500,r:[0,8000],t:25,tp:"price",s:"Ritz Paris booking, 2025",i:"🏨",f:"The Ritz Paris opened in 1898 and was the first hotel in Europe to have electricity in every room."},
+  {q:"One night in the world's most expensive hotel suite",a:92000,r:[0,500000],t:35,tp:"price",s:"Empathy Suite, Palms Casino Las Vegas",i:"🏨",f:"The Empathy Suite was designed by Damien Hirst and includes two sharks in formaldehyde.",x:1},
+  {q:"A bottle of Dom Pérignon 2015 vintage (EU retail)",a:210,r:[0,800],t:20,tp:"price",s:"Wine-Searcher avg, 2025",i:"🍾",f:"Dom Pérignon only releases vintage champagnes. If a year doesn't meet their standard, they skip it entirely."},
+  {q:"A bottle of Château Lafite Rothschild 2020",a:650,r:[0,3000],t:25,tp:"price",s:"Wine-Searcher avg, 2025",i:"🍷",f:"Lafite has been a First Growth Bordeaux since the original 1855 classification. Prices have risen 20x since the 1990s."},
+  {q:"One kg of saffron, retail grade (2025)",a:8000,r:[0,50000],t:25,tp:"price",s:"SaffronWell, 2025",i:"🌸",f:"Each kg requires hand-picking 150,000 crocus flowers at dawn.",x:1},
+  {q:"One litre of genuine HP printer ink",a:2500,r:[0,15000],t:30,tp:"price",s:"Derived from cartridge pricing",i:"🖨️",f:"That makes it more expensive per litre than vintage champagne, human blood, or even liquid gold.",x:1},
+  {q:"One kg of gold (early 2025)",a:80000,r:[0,250000],t:15,tp:"price",s:"LBMA, ~€80K/kg early 2025",i:"🪙",f:"All the gold ever mined would fit in roughly 3.5 Olympic swimming pools."},
+  {q:"One kg of white truffle (Alba, 2024 season)",a:5000,r:[0,30000],t:30,tp:"price",s:"Truffle market reports, 2024",i:"🍄",f:"Truffles can't be farmed. They're hunted by trained dogs in forests.",x:1},
+  {q:"One carat, round brilliant diamond (D, VVS1)",a:15000,r:[0,80000],t:30,tp:"price",s:"Rapaport / BlueNile avg, 2025",i:"💎",f:"Lab-grown diamonds with identical specs cost about 70% less."},
+  {q:"A barrel of Brent crude oil (early 2025)",a:70,r:[0,250],t:18,tp:"price",s:"ICE Brent, Jan 2025 (~$76)",i:"🛢️",f:"Brent is named after a North Sea oilfield, which was itself named after the Brent goose."},
+  {q:"One Bitcoin (all-time high, Oct 2025)",a:116000,r:[0,500000],t:25,tp:"price",s:"Coinbase ATH, 6 Oct 2025 ($126K)",i:"₿",f:"The first known Bitcoin transaction bought two pizzas for 10,000 BTC in 2010.",x:1},
+  {q:"The raw chemical elements in a human body",a:1,r:[0,500],t:45,tp:"price",s:"Royal Society of Chemistry",i:"🧪",f:"Oxygen, carbon, hydrogen, nitrogen, calcium, phosphorus. You could buy all of them for less than a coffee.",x:1},
+  {q:"Launching 1 kg to low Earth orbit (SpaceX Falcon 9)",a:2500,r:[0,30000],t:30,tp:"price",s:"NASA / SpaceX published pricing (~$2,720)",i:"🚀",f:"In the Space Shuttle era, the same kg cost over €50,000.",x:1},
+  {q:"The Olympic gold medal's raw material value (2024)",a:860,r:[0,5000],t:30,tp:"price",s:"Paris 2024 medal composition, gold market price",i:"🥇",f:"Paris 2024 golds contained a piece of the original Eiffel Tower.",x:1},
+  {q:"Average monthly rent, 1-bed flat, central Paris (2025)",a:1300,r:[0,5000],t:20,tp:"price",s:"Numbeo, 2025",i:"🏠",f:"Paris has had rent control since 2019. Without it, estimates suggest rents would be 15–20% higher."},
+  {q:"Average monthly rent, 1-bed flat, central London (2025)",a:2100,r:[0,6000],t:20,tp:"price",s:"Numbeo, 2025",i:"🏠",f:"London rents have risen over 30% since 2020, far outpacing wage growth."},
+  {q:"Average monthly rent, 1-bed flat, central Berlin (2025)",a:1000,r:[0,4000],t:20,tp:"price",s:"Numbeo, 2025",i:"🏠",f:"Berlin's rent cap law was struck down by the Constitutional Court in 2021 as unconstitutional."},
+  {q:"Average monthly rent, 1-bed flat, Bucharest (2025)",a:500,r:[0,2500],t:25,tp:"price",s:"Numbeo, 2025",i:"🏠",f:"Bucharest has one of the highest home ownership rates in the EU, at over 95%."},
+  {q:"Average house price in Amsterdam (2024)",a:500000,r:[0,1500000],t:25,tp:"price",s:"CBS / NVM Netherlands, 2024",i:"🏡",f:"Amsterdam house prices roughly tripled between 2013 and 2024."},
+  {q:"Average house price in the UK (2024)",a:330000,r:[0,1000000],t:20,tp:"price",s:"ONS UK HPI, ~£282K → ~€330K",i:"🏡",f:"The average UK house price is now about 8x the average annual salary. In 1997, it was 3.5x."},
+  {q:"A year of tuition at Oxford (international undergrad, 2024–25)",a:40000,r:[0,120000],t:20,tp:"price",s:"Oxford Uni published fees",i:"🎓",f:"UK students pay about £9,250 per year. International students pay 3–4x that."},
+  {q:"A year of tuition at Harvard (2024–25)",a:51900,r:[0,120000],t:18,tp:"price",s:"Harvard, $56,550 → ~€51,900",i:"🎓",f:"Harvard's endowment could pay every student's tuition for 14 years."},
+  {q:"Average annual university tuition in Germany (public)",a:250,r:[0,5000],t:35,tp:"price",s:"DAAD / semester fees ~€125/sem",i:"🎓",f:"The fee covers a semester transport ticket. Tuition itself is free.",x:1},
+  {q:"A Ford Model T at US launch (1908)",a:730,r:[0,5000],t:25,tp:"price",s:"Ford archives, $825 → ~€730 (historical)",i:"🚗",f:"By 1927, Ford had sold 15 million Model Ts. Assembly line production cut the price from $850 to $260."},
+  {q:"The most expensive violin ever sold (2025)",a:21100000,r:[0,100000000],t:30,tp:"price",s:"Baron Knoop Stradivarius, Mar 2025 ($23M)",i:"🎻",f:"It was bought for €2.5M in 1993 and sold for €21M — a 744% return in 32 years.",x:1},
+  {q:"The most expensive painting ever sold at auction",a:413000000,r:[0,2000000000],t:30,tp:"price",s:"Salvator Mundi, Christie's 2017 ($450M)",i:"🖼️",f:"The painting's attribution to Leonardo da Vinci is still disputed by some scholars.",x:1},
+  {q:"The most expensive car ever sold at auction",a:127000000,r:[0,500000000],t:30,tp:"price",s:"1955 Mercedes 300 SLR, RM Sotheby's 2022 ($143M)",i:"🏎️",f:"The 1955 Mercedes 300 SLR Uhlenhaut Coupé — one of only two ever made.",x:1},
+  {q:"The most expensive home sale in the US (as of 2024)",a:220000000,r:[0,1000000000],t:30,tp:"price",s:"Ken Griffin, 220 Central Park South, NYC, 2019 (~$238M)",i:"🏰",f:"Griffin's penthouse spans roughly 24,000 square feet across four floors overlooking Central Park."},
+  {q:"A EuroMillions jackpot cap (maximum, 2025)",a:250000000,r:[0,1000000000],t:25,tp:"price",s:"EuroMillions rules, €250M cap since 2022",i:"🎰",f:"The largest EuroMillions jackpot ever won was €230 million in 2022, shared between a couple in the UK."},
+  {q:"The annual salary of the EU Commission president (2025)",a:340000,r:[0,1500000],t:25,tp:"price",s:"EU Staff Regulations, 2025",i:"🏛️",f:"The EU Commission president earns more than the US president ($400K) but less than many Fortune 500 CEOs."},
+  {q:"Cost to build one km of high-speed rail in Europe",a:25000000,r:[0,200000000],t:35,tp:"price",s:"ECA / avg EU HSR projects",i:"🚄",f:"That's roughly 10x the cost per km of a standard motorway.",x:1},
+  {q:"A monthly ChatGPT Plus subscription (2025)",a:18.4,r:[0,60],t:12,tp:"price",s:"OpenAI, $20 → ~€18.40",i:"🤖",f:"OpenAI's revenue grew from near zero to over $2 billion annually within two years of ChatGPT's launch."},
+  {q:"A kilogram of avocados in Europe (2025)",a:4.5,r:[0,20],t:18,tp:"price",s:"Numbeo / supermarket avg, 2025",i:"🥑",f:"Global avocado production has tripled since 2000, driven largely by demand from Europe and the US."},
+  {q:"A standard Uber ride, 10 km, in Paris (2025)",a:18,r:[0,60],t:20,tp:"price",s:"Uber fare estimate, Paris 2025",i:"🚕",f:"Paris banned UberPop (the peer-to-peer service) in 2015 after protests by licensed taxi drivers."},
+  {q:"The yearly cost of raising a child to 18 in the UK",a:12000,r:[0,50000],t:25,tp:"price",s:"CPAG estimates, ~£10K/yr → ~€12K",i:"👶",f:"The total cost of raising a child to 18 in the UK is estimated at roughly £200,000."},
+  {q:"A ticket to the Louvre Museum (adult, 2025)",a:22,r:[0,80],t:12,tp:"price",s:"Louvre official pricing, 2025",i:"🏛️",f:"The Louvre is the most visited museum in the world, with 8.8 million visitors in 2024."},
+  {q:"A standard gym membership in London (monthly, 2025)",a:50,r:[0,200],t:20,tp:"price",s:"Numbeo avg, 2025",i:"🏋️",f:"The UK fitness industry generates over £5 billion in revenue annually."},
+  {q:"A full tank of diesel for a VW Golf (55L) in France (2025)",a:93,r:[0,250],t:15,tp:"price",s:"GlobalPetrolPrices + 55L tank",i:"⛽",f:"France saw widespread 'gilets jaunes' protests in 2018, triggered in part by fuel tax increases."},
+  {q:"Annual Netflix revenue (2024)",a:33000000000,r:[0,100000000000],t:25,tp:"price",s:"Netflix FY2024, ~$36B → ~€33B",i:"📺",f:"Netflix spends roughly €15 billion per year on content — more than any Hollywood studio."},
+  {q:"Apple's annual revenue (FY2024)",a:348000000000,r:[0,1000000000000],t:20,tp:"price",s:"Apple 10-K FY2024, $391B → ~€348B",i:"🍎",f:"Apple makes more revenue in a single quarter than most Fortune 500 companies make in a year."},
+  {q:"% of Americans who say they believe the Earth is flat",a:10,r:[0,50],t:30,tp:"pct",s:"POLES survey, Carsey School, 2021",i:"🌍",f:"The figure is highest among 18-24 year olds.",x:1},
+  {q:"% of the Earth's surface covered by water",a:71,r:[0,100],t:10,tp:"pct",s:"USGS",i:"🌊",f:"Yet only 3% of that is freshwater, and most of it is frozen.",x:1},
+  {q:"% of emails sent worldwide that are spam (2024)",a:46,r:[0,95],t:20,tp:"pct",s:"Kaspersky / Statista, 2024",i:"📧",f:"That's roughly 160 billion spam emails every single day.",x:1},
+  {q:"% of the world's electricity from renewable sources (2024)",a:30,r:[0,80],t:20,tp:"pct",s:"IEA, 2024",i:"⚡",f:"Solar and wind alone accounted for over 12% of global electricity in 2024, up from under 2% a decade ago."},
+  {q:"% of adults worldwide classified as obese (WHO, 2022)",a:13,r:[0,50],t:25,tp:"pct",s:"WHO Global Health Observatory, 2022",i:"📊",f:"Global obesity has roughly tripled since 1975. The rate is highest in Pacific Island nations."},
+  {q:"% of Europeans aged 25–34 living with their parents (2023)",a:29,r:[0,70],t:20,tp:"pct",s:"Eurostat, 2023",i:"🏠",f:"The figure exceeds 60% in Italy, Greece, and Croatia, but is under 5% in the Nordic countries."},
+  {q:"% of the global population that uses social media (2025)",a:63,r:[0,95],t:12,tp:"pct",s:"DataReportal, Jan 2025",i:"📱",f:"The average user spends about 2 hours and 20 minutes per day on social media platforms."},
+  {q:"% of world population with a university degree",a:7,r:[0,50],t:25,tp:"pct",s:"UNESCO / World Bank",i:"🎓",f:"More people own a smartphone than have a degree.",x:1},
+  {q:"% of the world's population that is left-handed",a:10,r:[0,40],t:20,tp:"pct",s:"Multiple meta-analyses",i:"✋",f:"Left-handedness was historically suppressed in many cultures. The true rate may be higher than measured."},
+  {q:"% of EU citizens who speak at least two languages",a:54,r:[0,90],t:15,tp:"pct",s:"Eurobarometer, 2024",i:"🗣️",f:"Luxembourg leads at 98%. The UK was consistently lowest before Brexit.",x:1},
+  {q:"% of web traffic that comes from mobile devices (2024)",a:59,r:[0,95],t:12,tp:"pct",s:"Statcounter, 2024",i:"📱",f:"In parts of Africa and Southeast Asia, mobile accounts for over 75% of web traffic."},
+  {q:"% of Europeans who have never travelled outside their country",a:37,r:[0,70],t:20,tp:"pct",s:"Eurobarometer, 2023",i:"✈️",f:"The figure drops to 15% for under-30s.",x:1},
+  {q:"% of global plastic waste that is actually recycled",a:9,r:[0,60],t:25,tp:"pct",s:"OECD Global Plastics Outlook, 2022",i:"♻️",f:"The other 91% is landfilled, incinerated, or ends up in the environment.",x:1},
+  {q:"% of the Amazon rainforest that has been deforested since 1970",a:17,r:[0,50],t:20,tp:"pct",s:"INPE / WWF, cumulative to 2024",i:"🌳",f:"Deforestation has slowed significantly under recent Brazilian policies, dropping 50% from the 2020 peak."},
+  {q:"% of global CO₂ emissions produced by China (2023)",a:30,r:[0,60],t:18,tp:"pct",s:"Global Carbon Project, 2023",i:"🏭",f:"Per capita, China emits about half as much as the US and roughly the same as the EU average."},
+  {q:"% of Europeans who say they trust the European Union (2024)",a:49,r:[0,80],t:18,tp:"pct",s:"Eurobarometer, Spring 2024",i:"🇪🇺",f:"Trust varies enormously: over 70% in Ireland and Portugal, below 35% in France and Greece."},
+  {q:"% of food produced globally that is wasted",a:33,r:[0,70],t:18,tp:"pct",s:"FAO / UNEP, 2024",i:"🍽️",f:"That's roughly 1.3 billion tonnes of food per year.",x:1},
+  {q:"% of the world's internet users in Asia",a:54,r:[0,80],t:18,tp:"pct",s:"Internet World Stats, 2024",i:"🌏",f:"India and China alone account for roughly a third of all internet users worldwide."},
+  {q:"Voter turnout in the 2024 European Parliament elections",a:51,r:[0,85],t:15,tp:"pct",s:"European Parliament, Jun 2024",i:"🗳️",f:"Turnout exceeded 50% for only the second time since 1994. Belgium and Luxembourg had the highest rates (voting is compulsory)."},
+  {q:"% of Europeans aged 16–74 who shopped online in the past year (2023)",a:69,r:[0,95],t:15,tp:"pct",s:"Eurostat, 2023",i:"🛒",f:"The Netherlands and Denmark lead at over 90%. Romania and Bulgaria are below 45%."},
+  {q:"% of the world's population living in extreme poverty (<$2.15/day, 2024)",a:8.5,r:[0,40],t:25,tp:"pct",s:"World Bank, 2024 estimate",i:"📉",f:"In 1990, the figure was 36%. The decline is one of the most significant economic shifts in history."},
+  {q:"% of Europeans who smoke daily (2023)",a:18,r:[0,50],t:18,tp:"pct",s:"Eurostat health survey, 2023",i:"🚬",f:"Sweden is on track to become the first 'smoke-free' country in Europe, with under 6% daily smokers."},
+  {q:"% of the world's freshwater locked in glaciers and ice caps",a:69,r:[0,95],t:15,tp:"pct",s:"USGS Water Science",i:"🧊",f:"If all glaciers and ice caps melted, global sea levels would rise by roughly 70 metres."},
+  {q:"% of EU energy consumption from fossil fuels (2023)",a:70,r:[0,95],t:15,tp:"pct",s:"Eurostat energy balance, 2023",i:"🔥",f:"The EU aims to be climate-neutral by 2050. In 2000, the fossil fuel share was over 80%."},
+  {q:"% of global GDP represented by the EU (2024)",a:15,r:[0,50],t:18,tp:"pct",s:"IMF World Economic Outlook, 2024",i:"💶",f:"In 2000, the EU represented over 25% of global GDP. The decline reflects Asia's rapid growth."},
+  {q:"Youth unemployment rate in Spain (under 25, 2024)",a:26,r:[0,60],t:18,tp:"pct",s:"Eurostat, 2024",i:"📊",f:"Spain's youth unemployment peaked at 56% in 2013 during the eurozone crisis."},
+  {q:"Unemployment rate in Germany (2024)",a:6,r:[0,25],t:20,tp:"pct",s:"Destatis / Eurostat, 2024",i:"📊",f:"Germany's unemployment rate has roughly halved since the Hartz labour reforms of 2003–2005."},
+  {q:"% of women on boards of the largest EU-listed companies (2024)",a:34,r:[0,60],t:18,tp:"pct",s:"EIGE Gender Equality Index, 2024",i:"👩‍💼",f:"The EU adopted a directive in 2022 requiring at least 40% of non-executive board seats to go to the underrepresented gender by 2026."},
+  {q:"% of EU workers who worked remotely at least sometimes (2023)",a:24,r:[0,60],t:20,tp:"pct",s:"Eurostat, 2023",i:"🏡",f:"The Netherlands leads at over 50%. Romania and Bulgaria are under 5%."},
+  {q:"% of Americans who own cryptocurrency (2024)",a:28,r:[0,60],t:20,tp:"pct",s:"Pew Research, 2024",i:"₿",f:"Ownership roughly doubled between 2021 and 2024, driven by the approval of spot Bitcoin ETFs."},
+  {q:"% of the Earth's land surface that is desert",a:33,r:[0,70],t:15,tp:"pct",s:"USGS / NASA",i:"🏜️",f:"The Sahara alone is roughly the size of the United States."},
+  {q:"% of the world's oxygen produced by the ocean",a:50,r:[0,90],t:20,tp:"pct",s:"NOAA",i:"🌊",f:"Phytoplankton are responsible for most of it, not trees.",x:1},
+  {q:"% of global internet traffic that is video streaming (2024)",a:65,r:[0,95],t:15,tp:"pct",s:"Sandvine Global Internet Phenomena Report, 2024",i:"▶️",f:"Netflix alone accounts for about 15% of all downstream traffic."},
+  {q:"% of the human body that is water (by weight)",a:60,r:[0,95],t:12,tp:"pct",s:"USGS / medical consensus",i:"💧",f:"Babies are about 75% water. The percentage decreases with age."},
+  {q:"% of EU household waste that is recycled (2022)",a:49,r:[0,80],t:18,tp:"pct",s:"Eurostat, 2022",i:"♻️",f:"Germany leads at 67%. Romania is below 15%."},
+  {q:"% of Europeans who say climate change is a very serious problem (2023)",a:77,r:[0,100],t:15,tp:"pct",s:"Eurobarometer, 2023",i:"🌡️",f:"Southern European countries, most affected by heatwaves and drought, show the highest concern."},
+  {q:"% of Netflix subscribers who are outside the US & Canada (2024)",a:60,r:[0,90],t:18,tp:"pct",s:"Netflix Q4 2024 earnings",i:"📺",f:"Netflix is available in over 190 countries — every country except China, North Korea, Russia, and Syria."},
+  {q:"% of the world's cobalt mined in the DRC (2023)",a:73,r:[0,95],t:20,tp:"pct",s:"USGS Mineral Commodity Summaries, 2024",i:"⛏️",f:"Cobalt is essential for lithium-ion batteries in phones and EVs.",x:1},
+  {q:"% of Europeans who say they can hold a conversation in English",a:38,r:[0,80],t:18,tp:"pct",s:"Eurobarometer, 2024",i:"🇬🇧",f:"The figure exceeds 85% in the Netherlands, Sweden, and Denmark, but is under 20% in Spain and Italy."},
+  {q:"Share of world container shipping passing through the Suez Canal (2023)",a:12,r:[0,50],t:25,tp:"pct",s:"Suez Canal Authority, 2023",i:"🚢",f:"Houthi attacks in 2024 caused many ships to reroute around Africa, adding 10–14 days to the journey."},
+  {q:"% of global flights that are domestic (not international)",a:60,r:[0,90],t:20,tp:"pct",s:"ICAO, 2024",i:"✈️",f:"The US alone accounts for roughly a quarter of all domestic flights worldwide."},
+  {q:"% of the EU population born in another EU country",a:4,r:[0,25],t:25,tp:"pct",s:"Eurostat, 2023",i:"🇪🇺",f:"Luxembourg is the outlier: nearly half of its population was born in another EU country."},
+  {q:"% of the UK workforce employed in the financial sector",a:3.5,r:[0,20],t:25,tp:"pct",s:"ONS, 2024",i:"🏦",f:"Despite employing only 3.5% of the workforce, financial services contribute over 10% of UK tax revenue."},
+  {q:"% of Europeans aged 20–24 with at least upper secondary education (2023)",a:85,r:[0,100],t:12,tp:"pct",s:"Eurostat, 2023",i:"📚",f:"Portugal had the biggest improvement, jumping from 44% in 2002 to 85% in 2023."},
+  {q:"% of global trade conducted in US dollars (2024)",a:47,r:[0,80],t:18,tp:"pct",s:"SWIFT, 2024",i:"💵",f:"The euro is second at about 23%. The Chinese yuan accounts for roughly 5%, despite China's trade volume."},
+  {q:"Average income tax rate in Denmark (effective, 2024)",a:36,r:[0,65],t:18,tp:"pct",s:"OECD Taxing Wages, 2024",i:"🇩🇰",f:"In return, Danes get free healthcare, free university education, and generous unemployment benefits."},
+  {q:"Number of bones in the adult human body",a:206,r:[0,500],t:8,tp:"count",s:"Gray's Anatomy",i:"🦴",f:"Babies are born with about 270 bones. Many fuse together as you grow."},
+  {q:"Number of countries in the world (UN member states, 2025)",a:193,r:[0,300],t:8,tp:"count",s:"United Nations, 2025",i:"🌍",f:"The most recent member is South Sudan, admitted in 2011. Several territories (Taiwan, Kosovo, Palestine) are not full members."},
+  {q:"Number of member states in the EU (2025)",a:27,r:[0,50],t:8,tp:"count",s:"European Union, 2025",i:"🇪🇺",f:"Croatia was the last country to join in 2013. The next candidates include Ukraine, Moldova, and several Western Balkan states."},
+  {q:"Number of official languages of the EU",a:24,r:[0,50],t:15,tp:"count",s:"European Union, 2025",i:"🗣️",f:"Irish became an official EU language in 2022, despite most Irish citizens speaking English as their first language."},
+  {q:"Number of MEPs in the European Parliament (2024–2029)",a:720,r:[0,1500],t:15,tp:"count",s:"European Parliament, 2024",i:"🏛️",f:"The number was increased by 15 seats for the 2024 elections, partly to reflect population changes."},
+  {q:"Number of active satellites orbiting Earth (2025)",a:10000,r:[0,50000],t:25,tp:"count",s:"UCS Satellite Database / ESA, 2025",i:"🛰️",f:"More than half are SpaceX Starlink satellites."},
+  {q:"Number of languages spoken in the world today",a:7000,r:[0,30000],t:20,tp:"count",s:"Ethnologue, 2024",i:"🗣️",f:"Nearly half are expected to be extinct by 2100. One language dies roughly every two weeks."},
+  {q:"Number of airports worldwide",a:41000,r:[0,150000],t:25,tp:"count",s:"CIA World Factbook, 2024",i:"🛫",f:"The US alone has over 13,000 — roughly a third of the global total. Most are small regional airstrips."},
+  {q:"Number of Netflix subscribers worldwide (Q4 2024)",a:302000000,r:[0,1000000000],t:18,tp:"count",s:"Netflix Q4 2024 earnings",i:"📺",f:"Netflix launched as a DVD-by-mail service in 1997. It didn't start streaming until 2007."},
+  {q:"Number of Starbucks stores worldwide (2024)",a:40000,r:[0,150000],t:20,tp:"count",s:"Starbucks FY2024 annual report",i:"☕",f:"Starbucks opens an average of 6 new stores per day. China is its fastest-growing market."},
+  {q:"Number of McDonald's restaurants worldwide (2024)",a:40000,r:[0,150000],t:18,tp:"count",s:"McDonald's FY2024",i:"🍔",f:"McDonald's serves roughly 69 million customers per day — nearly 1% of the world's population."},
+  {q:"Number of Wikipedia articles in all languages (2025)",a:63000000,r:[0,200000000],t:25,tp:"count",s:"Wikipedia, 2025",i:"📚",f:"English Wikipedia alone has over 6.8 million articles."},
+  {q:"Number of daily Google searches (2024 estimate)",a:8500000000,r:[0,30000000000],t:25,tp:"count",s:"Google / Statista, 2024",i:"🔍",f:"That's roughly 100,000 searches per second.",x:1},
+  {q:"Number of apps on the Apple App Store (2024)",a:1800000,r:[0,10000000],t:25,tp:"count",s:"Apple / Statista, 2024",i:"📲",f:"The App Store launched in 2008 with just 500 apps. Apple takes a 30% commission on sales."},
+  {q:"Number of songs on Spotify (2024)",a:100000000,r:[0,500000000],t:25,tp:"count",s:"Spotify, 2024",i:"🎵",f:"About 100,000 new songs are uploaded to Spotify every single day."},
+  {q:"Height of the Burj Khalifa in metres",a:828,r:[0,1500],t:12,tp:"count",s:"Emaar Properties",i:"🏗️",f:"It has held the 'world\\'s tallest building' title since 2010. The Jeddah Tower in Saudi Arabia aims to surpass it at over 1,000m, though construction has been paused since 2018."},
+  {q:"Depth of the Mariana Trench in metres",a:10994,r:[0,30000],t:15,tp:"count",s:"NOAA",i:"🌊",f:"Only three people have ever reached the bottom. The water pressure there is over 1,000 times atmospheric pressure."},
+  {q:"Distance from the Earth to the Moon in km",a:384400,r:[0,1500000],t:12,tp:"count",s:"NASA",i:"🌙",f:"The Moon is drifting away from Earth at about 3.8 cm per year."},
+  {q:"Speed of the International Space Station in km/h",a:27600,r:[0,80000],t:20,tp:"count",s:"NASA",i:"🛸",f:"At that speed, the ISS orbits the Earth once every 90 minutes. Astronauts see 16 sunrises per day."},
+  {q:"Number of daily flights worldwide (2024)",a:100000,r:[0,500000],t:25,tp:"count",s:"ICAO, 2024",i:"✈️",f:"At any given moment, there are roughly 10,000 aircraft in the air."},
+  {q:"Number of time zones in Russia",a:11,r:[0,24],t:15,tp:"count",s:"Russian law, 2014 reform",i:"🕐",f:"Before 2010, Russia had 11 time zones. President Medvedev reduced them to 9, but Putin restored 11 in 2014."},
+  {q:"Number of islands in the Philippines",a:7641,r:[0,30000],t:20,tp:"count",s:"Philippine government",i:"🏝️",f:"The count was updated in 2016 from 7,107 to 7,641 after improved satellite mapping."},
+  {q:"Population of Tokyo metro area in millions (2024)",a:37,r:[0,60],t:15,tp:"count",s:"UN World Urbanization Prospects, 2024",i:"🗼",f:"Tokyo's metro area has more people than all of Canada."},
+  {q:"Estimated number of stars in the Milky Way (billions)",a:200,r:[0,1000],t:30,tp:"count",s:"NASA / ESA estimates",i:"⭐",f:"The observable universe contains roughly 2 trillion galaxies, each with hundreds of billions of stars."},
+  {q:"Number of neurons in the human brain (billions)",a:86,r:[0,500],t:25,tp:"count",s:"Azevedo et al., 2009 (neuroscience consensus)",i:"🧠",f:"That's roughly the same number of stars as in a small galaxy. Each neuron can form thousands of connections."},
+  {q:"Litres of blood in an average adult human body",a:5,r:[0,15],t:15,tp:"count",s:"Medical consensus",i:"🩸",f:"Your heart pumps all 5 litres through your body roughly once every minute."},
+  {q:"Number of Olympic sports at the Paris 2024 Games",a:32,r:[0,60],t:15,tp:"count",s:"IOC, Paris 2024",i:"🏅",f:"Breaking (breakdancing) made its Olympic debut in Paris 2024 but was dropped for Los Angeles 2028."},
+  {q:"Number of paintings in the Louvre Museum collection",a:380000,r:[0,2000000],t:30,tp:"count",s:"Louvre Museum",i:"🖼️",f:"Only about 35,000 are on display at any time — less than 10% of the collection."},
+  {q:"Number of billionaires worldwide (Forbes, 2024)",a:2781,r:[0,10000],t:20,tp:"count",s:"Forbes, 2024",i:"💰",f:"The combined wealth of all billionaires exceeds $14 trillion — more than China's GDP."},
+  {q:"Global smartphone users in billions (2024)",a:4.9,r:[0,10],t:18,tp:"count",s:"Statista, 2024",i:"📱",f:"More people have access to a smartphone than to a toilet."},
+  {q:"Number of UNESCO World Heritage Sites (2024)",a:1223,r:[0,5000],t:20,tp:"count",s:"UNESCO WHC, 2024",i:"🏛️",f:"Italy and China are tied for the most sites, with 59 each."},
+  {q:"Tour de France total distance in km (typical edition)",a:3350,r:[0,8000],t:18,tp:"count",s:"ASO typical route",i:"🚴",f:"Riders burn roughly 5,000–8,000 calories per stage. The entire race takes about 80 hours of riding."},
+  {q:"Length of the Great Wall of China in km",a:21196,r:[0,50000],t:25,tp:"count",s:"Chinese State Administration",i:"🧱",f:"The 21,196 km figure includes all branches and sections. The main line is roughly 6,000 km."},
+  {q:"Number of countries McDonald's operates in (2024)",a:100,r:[0,200],t:15,tp:"count",s:"McDonald's corporate, 2024",i:"🍔",f:"Iceland had McDonald's until 2009. The last burger sold there is preserved in a glass case in a hostel."},
+  {q:"Number of elements on the periodic table",a:118,r:[0,200],t:8,tp:"count",s:"IUPAC, 2024",i:"⚗️",f:"The four most recent elements were added in 2016. Element 118, oganesson, was named after a living person."},
+  {q:"Number of keys on a standard piano",a:88,r:[0,150],t:8,tp:"count",s:"Standard piano specification",i:"🎹",f:"The 88-key standard was set by Steinway in the 1880s. Some concert grands have 97 keys."},
+  {q:"Year the last execution by guillotine took place in France",a:1977,r:[0,2000],t:2,tp:"count",s:"Execution of Hamida Djandoubi, 10 Sep 1977",i:"🇫🇷",f:"Star Wars had already been in cinemas for four months.",x:1},
+  {q:"Number of Schengen Area member states (2025)",a:29,r:[0,50],t:10,tp:"count",s:"European Commission, 2025",i:"🇪🇺",f:"Romania and Bulgaria became full members on 1 January 2025, after a 17-year accession process."},
+  {q:"Total length of the London Underground in km",a:402,r:[0,1000],t:15,tp:"count",s:"TfL, 2024",i:"🚇",f:"The Tube carries roughly 5 million passengers per day. The oldest line, the Metropolitan, opened in 1863."},
+  {q:"Number of commercial aircraft in service worldwide (2024)",a:28000,r:[0,100000],t:25,tp:"count",s:"IATA / Cirium, 2024",i:"✈️",f:"The global fleet has doubled since 2000. Boeing and Airbus together account for over 90% of deliveries."},
+  {q:"Number of Grand Slam tennis titles won by Novak Djokovic (as of 2025)",a:24,r:[0,40],t:12,tp:"count",s:"ATP, 2025",i:"🎾",f:"Djokovic holds the record for most Grand Slams in men's tennis, surpassing Nadal (22) and Federer (20)."},
+  {q:"Year the Euro currency entered circulation as banknotes",a:2002,r:[0,2015],t:1,tp:"count",s:"ECB",i:"💶",f:"12 countries adopted the euro simultaneously on 1 January 2002. There are now 20 eurozone members."},
+  {q:"World population in billions (2025 estimate)",a:8.1,r:[0,15],t:10,tp:"count",s:"UN Population Division, 2025",i:"🌍",f:"It took all of human history to reach 1 billion (around 1800). It then took just 200 years to add 7 billion more."},
+  {q:"Number of episodes of The Simpsons (through season 36)",a:790,r:[0,1500],t:18,tp:"count",s:"Fox / Disney, 2025",i:"📺",f:"The Simpsons is the longest-running American animated series and the longest-running scripted primetime show."},
+  {q:"Average life expectancy in Japan in years (2023)",a:84,r:[0,100],t:5,tp:"count",s:"WHO, 2023",i:"🇯🇵",f:"Japan has the highest proportion of centenarians per capita in the world."},
+  {q:"Number of Tesla vehicles delivered worldwide in 2024",a:1790000,r:[0,5000000],t:20,tp:"count",s:"Tesla FY2024 delivery report",i:"🚗",f:"Tesla's market share of global EV sales is declining as Chinese manufacturers expand rapidly."},
+  {q:"Number of visitors to the Louvre Museum in 2024 (millions)",a:8.8,r:[0,30],t:20,tp:"count",s:"Louvre Museum, 2024",i:"🖼️",f:"The Mona Lisa accounts for roughly 80% of the reason people visit, according to Louvre surveys."},
+  {q:"Weight of a blue whale in tonnes (adult average)",a:150,r:[0,500],t:20,tp:"count",s:"NOAA / marine biology consensus",i:"🐋",f:"A blue whale's heart is roughly the size of a small car. Its tongue alone weighs as much as an elephant."},
+  {q:"Speed of light in km per second (rounded to thousands)",a:300000,r:[0,1000000],t:8,tp:"count",s:"NIST",i:"💡",f:"At the speed of light, you could circle the Earth 7.5 times in one second."},
+  {q:"Number of bones a baby is born with",a:270,r:[0,500],t:18,tp:"count",s:"Medical consensus",i:"👶",f:"The 'extra' bones are mostly cartilage that gradually fuses. The process isn't complete until your mid-20s."},
+  {q:"Percentage of DNA shared between humans and chimpanzees",a:98.7,r:[0,100],t:5,tp:"pct",s:"Nature, 2005 genome comparison",i:"🐒",f:"Humans also share about 60% of their DNA with bananas."},
+  {q:"% of the world's population that has blue eyes",a:8,r:[0,40],t:25,tp:"pct",s:"World Atlas / genetic studies",i:"👁️",f:"10,000 years ago, every human had brown eyes. Blue eyes arose from a single genetic mutation near the Black Sea."},
+  {q:"Average age of first-time mothers in the EU (2022)",a:30,r:[0,42],t:8,tp:"count",s:"Eurostat, 2022",i:"👩‍🍼",f:"In 1980, the EU average was 25. The shift reflects longer education, later careers, and better contraception."},
+  {q:"Number of countries that have landed a spacecraft on the Moon",a:5,r:[0,15],t:15,tp:"count",s:"NASA / space agencies (US, Russia, China, India, Japan)",i:"🌙",f:"Japan became the fifth in January 2024 with its SLIM lander, though it landed upside down."},
+  {q:"Total length of EU motorways in km (2022)",a:78000,r:[0,300000],t:25,tp:"count",s:"Eurostat, 2022",i:"🛣️",f:"Spain has the longest motorway network in the EU, surpassing both Germany and France."},
+  {q:"Number of electric cars sold worldwide in 2024 (millions)",a:17,r:[0,50],t:20,tp:"count",s:"IEA Global EV Outlook, 2025",i:"🔋",f:"China accounted for roughly 60% of global EV sales. Europe was second at about 25%."},
+  {q:"Year women first voted in a national election in Switzerland",a:1971,r:[0,1990],t:2,tp:"count",s:"Swiss Federal Council",i:"🇨🇭",f:"Switzerland was one of the last European countries to grant women's suffrage.",x:1},
+  {q:"Number of Nobel Prize laureates in history (through 2024)",a:965,r:[0,3000],t:20,tp:"count",s:"Nobel Foundation, 2024",i:"🏆",f:"The US leads with over 400 laureates. Marie Curie remains the only person to win in two different sciences."},
+  {q:"% of global internet users who use a VPN regularly (2024)",a:31,r:[0,70],t:20,tp:"pct",s:"Surfshark / GWI, 2024",i:"🔒",f:"Usage is highest in countries with internet censorship: Indonesia, India, and the UAE lead."},
+  {q:"% of EU electricity generated by nuclear power (2023)",a:22,r:[0,60],t:18,tp:"pct",s:"Eurostat, 2023",i:"☢️",f:"France alone accounts for nearly half of the EU's nuclear output, with 56 operational reactors."},
+  {q:"Number of LinkedIn monthly active users in millions (2024)",a:310,r:[0,1000],t:22,tp:"count",s:"Microsoft, 2024",i:"💼",f:"LinkedIn was founded in 2003 and acquired by Microsoft in 2016 for $26.2 billion."},
+  {q:"% of world's data created in the last two years",a:90,r:[0,100],t:15,tp:"pct",s:"IDC Global DataSphere, 2024",i:"💾",f:"By 2025, the world creates roughly 400 million terabytes of data per day."},
+  {q:"Number of known species on Earth (estimated, millions)",a:8.7,r:[0,30],t:25,tp:"count",s:"UNEP / Mora et al.",i:"🦋",f:"Scientists estimate that over 80% of species have not yet been discovered or described."},
+  {q:"Population of the EU in millions (2025)",a:449,r:[0,700],t:10,tp:"count",s:"Eurostat, 2025",i:"🇪🇺",f:"Germany accounts for roughly 19% of the EU population. Malta, the smallest member, has under 0.1%."},
+  {q:"% of world population that is vegetarian or vegan",a:8,r:[0,40],t:25,tp:"pct",s:"Ipsos / various surveys, 2023",i:"🥦",f:"India has by far the largest vegetarian population, at roughly 30–40% of the country."},
+  {q:"A kilowatt-hour of electricity in Germany (household, 2025)",a:0.37,r:[0,1.5],t:18,tp:"price",s:"Eurostat / BDEW, 2025",i:"⚡",f:"German household electricity is among the most expensive in Europe, roughly 3x the US average."},
+  {q:"% of global trade in goods carried by sea",a:80,r:[0,100],t:12,tp:"pct",s:"UNCTAD, 2023",i:"🚢",f:"A single large container ship can carry over 20,000 containers — enough goods to fill a small town's shops."},
+  {q:"Number of countries using the euro as official currency (2025)",a:20,r:[0,40],t:10,tp:"count",s:"ECB, 2025",i:"💶",f:"Croatia was the last to adopt the euro, in January 2023."},
+  {q:"A Eurostar ticket London–Paris (advance standard, one-way)",a:52,r:[0,300],t:22,tp:"price",s:"Eurostar avg advance fare, 2025",i:"🚄",f:"The Channel Tunnel took 6 years to build and cost £9 billion (1994 prices). It's 50 km long."},
+  {q:"Number of Michelin 3-star restaurants in the world (2025)",a:140,r:[0,500],t:25,tp:"count",s:"Michelin Guide, 2025",i:"⭐",f:"Japan has the most Michelin-starred restaurants of any country. Tokyo alone has more stars than Paris."},
+  {q:"% of Gen Z (18–25) who say they get news primarily from social media (2024)",a:54,r:[0,90],t:18,tp:"pct",s:"Reuters Digital News Report, 2024",i:"📰",f:"TikTok has overtaken Facebook as the leading news source for under-25s in most Western countries."},
+  {q:"Number of active volcanoes on Earth",a:1350,r:[0,5000],t:22,tp:"count",s:"Smithsonian Global Volcanism Program",i:"🌋",f:"Indonesia has the most active volcanoes of any country, with about 130."},
+  {q:"A kg of fresh Atlantic salmon in the EU (retail, 2025)",a:18,r:[0,60],t:18,tp:"price",s:"Numbeo / retail avg, 2025",i:"🐟",f:"Norway produces over half of the world's farmed Atlantic salmon."},
+  {q:"% of EU citizens who consider themselves religious",a:60,r:[0,90],t:18,tp:"pct",s:"Eurobarometer, 2024",i:"⛪",f:"The Czech Republic is the least religious EU country, with over 70% identifying as non-religious."},
+  {q:"Number of Formula 1 races in the 2025 season",a:24,r:[0,40],t:12,tp:"count",s:"FIA, 2025 calendar",i:"🏎️",f:"The 2025 calendar is the longest in F1 history. In 1950, the first season had just 7 races."},
+  {q:"Number of UNESCO intangible cultural heritage items",a:730,r:[0,3000],t:25,tp:"count",s:"UNESCO ICH, 2024",i:"🎭",f:"Items range from Neapolitan pizza-making to Mongolian throat singing to Belgian beer culture."},
+  {q:"Average wedding cost in the UK (2024)",a:22000,r:[0,80000],t:22,tp:"price",s:"Hitched Wedding Survey, 2024 (~£18.5K)",i:"💒",f:"The average UK wedding now has about 80 guests, down from 120 in 2010."}
+];
+
+function brusselsNow(){const s=new Date().toLocaleString("en-CA",{timeZone:"Europe/Brussels",hour12:false});const[d]=s.split(", ");return d.split("-").map(Number)}
+function daySeed(){const[y,m,d]=brusselsNow();return y*10000+m*100+d}
+function seedRng(s){let v=s;return()=>{v=(v*16807)%2147483647;return v/2147483647}}
+function shuf(a,r){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+function dailyQs(){
+  const r=seedRng(daySeed());
+  const pr=BANK.filter(q=>q.tp==="price"),pc=BANK.filter(q=>q.tp==="pct"),ct=BANK.filter(q=>q.tp==="count");
+  const wPr=[...pr,...pr.filter(q=>q.x)],wPc=[...pc,...pc.filter(q=>q.x)],wCt=[...ct,...ct.filter(q=>q.x)];
+  const dd=(arr,n)=>{const s=new Set(),o=[];for(const q of arr){if(!s.has(q.q)){s.add(q.q);o.push(q)}if(o.length>=n)break}return o};
+  return[...dd(shuf(wPr,r),2),...dd(shuf(wPc,r),2),...dd(shuf(wCt,r),1)].sort((a,b)=>a.t-b.t);
+}
+function dayNum(){const[y,m,d]=brusselsNow();const now=new Date(y,m-1,d);const start=new Date(2025,2,11);return Math.floor((now-start)/86400000)+1}
+function calcScore(g,a,t,rng){
+  const rangeErr=Math.abs(g-a)/((rng[1]-rng[0])||1)*100;
+  const adj=rangeErr*(15/t);
+  return adj<=2?5:adj<=5?4:adj<=10?3:adj<=20?2:adj<=35?1:0;
+}
+const TIERS=[
+  {s:5,l:"Bullseye",e:"🎯",c:"green",bg:"greenBg"},
+  {s:4,l:"Very close",e:"🟢",c:"green",bg:"greenBg"},
+  {s:3,l:"Good feel",e:"🟡",c:"gold",bg:"goldBg"},
+  {s:2,l:"Ballpark",e:"🟠",c:"orange",bg:"orangeBg"},
+  {s:1,l:"Way off",e:"🔴",c:"red",bg:"redBg"},
+  {s:0,l:"Lost in space",e:"⚫",c:"grey",bg:"greyBg"},
+];
+function tier(s){return TIERS.find(t=>t.s===s)||TIERS[5]}
+
+function fmtN(n){if(n>=1e9)return(n/1e9).toFixed(1)+"B";if(n>=1e6)return(n/1e6).toFixed(1)+"M";if(n>=10000)return Math.round(n).toLocaleString("en");if(n>=100)return Math.round(n).toLocaleString("en");if(n>=10)return n.toFixed(1);return n>=1?n.toFixed(2):n.toFixed(2)}
+function fmtV(n,tp,cur){if(tp==="pct")return n.toFixed(1)+"%";if(tp==="count")return fmtN(n);const s=cur==="EUR"?"€":"$";return s+fmtN(cur==="EUR"?n:n*EUR_USD)}
+function fmtT(n,tp,cur){if(tp==="pct")return Math.round(n)+"%";if(tp==="count"){if(n>=1e9)return(n/1e9).toFixed(0)+"B";if(n>=1e6)return(n/1e6).toFixed(0)+"M";if(n>=1000)return(n/1000).toFixed(0)+"K";return String(Math.round(n))}const v=cur==="EUR"?n:n*EUR_USD;const s=cur==="EUR"?"€":"$";if(v>=1e9)return s+(v/1e9).toFixed(0)+"B";if(v>=1e6)return s+(v/1e6).toFixed(0)+"M";if(v>=1000)return s+(v/1000).toFixed(0)+"K";return v>=1?s+Math.round(v):s+v.toFixed(1)}
+
+const _sk={c:0,b:0,d:0};function getSk(){return{..._sk}}
+function updSk(){const d=dayNum();if(_sk.d===d)return getSk();_sk.c=_sk.d===d-1?_sk.c+1:1;_sk.b=Math.max(_sk.b,_sk.c);_sk.d=d;return getSk()}
+
+// ═══ COMPONENTS ════════════════════════════════════════════════
+
+function AnimVal({value,tp,cur,dur=300}){
+  const[d,setD]=useState(value);const from=useRef(value);const t0=useRef(null);
+  useEffect(()=>{from.current=d;t0.current=null;const go=ts=>{if(!t0.current)t0.current=ts;const p=Math.min((ts-t0.current)/dur,1);setD(from.current+(value-from.current)*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(go)};requestAnimationFrame(go)},[value]);
+  return (<span>{fmtV(d,tp,cur)}</span>);
+}
+
+function CurrencySwitch({cur,set,C:T}){
+  return (
+    <div style={{display:"inline-flex",borderRadius:10,overflow:"hidden",border:`1px solid ${T.border}`,background:T.surfaceAlt}}>
+      {["EUR","USD"].map(c=>(
+        <button key={c} onClick={()=>set(c)} style={{padding:"5px 14px",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:MONO,transition:"all 0.2s",background:cur===c?T.surface:"transparent",color:cur===c?T.text:T.textTer,boxShadow:cur===c?"0 1px 3px rgba(0,0,0,0.08)":"none",borderRadius:cur===c?8:0}}>{c==="EUR"?"€ EUR":"$ USD"}</button>
+      ))}
+    </div>
+  );
+}
+
+function ThemeToggle({dark,set,C:T}){
+  return (
+    <button onClick={()=>set(!dark)} style={{background:T.surfaceAlt,border:`1px solid ${T.border}`,borderRadius:10,width:34,height:34,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,transition:"all 0.2s",padding:0}}>{dark?"☀️":"🌙"}</button>
+  );
+}
+
+function EstimateSlider({min,max,value,onChange,locked,answer,showAnswer,tp,cur,tolerance,C:T}){
+  const ref=useRef(null);const dragging=useRef(false);const raf=useRef(null);const pv=useRef(value);
+  const range=max-min||1;
+  const pct=Math.max(0,Math.min(100,((value-min)/range)*100));
+  const aPct=showAnswer?Math.max(0,Math.min(100,((answer-min)/range)*100)):null;
+  const bullseyeHalf=answer*(tolerance*0.5/100);
+  const bandLeft=showAnswer?Math.max(0,((answer-bullseyeHalf-min)/range)*100):0;
+  const bandRight=showAnswer?Math.min(100,((answer+bullseyeHalf-min)/range)*100):0;
+  const ease="cubic-bezier(0.22,1,0.36,1)";
+
+  const commit=useCallback(()=>{if(raf.current){cancelAnimationFrame(raf.current);raf.current=null}onChange(pv.current)},[onChange]);
+  const calc=useCallback(cx=>{if(locked||!ref.current)return;const rect=ref.current.getBoundingClientRect();pv.current=min+Math.max(0,Math.min(1,(cx-rect.left)/rect.width))*range;if(!raf.current)raf.current=requestAnimationFrame(()=>{raf.current=null;onChange(pv.current)})},[locked,min,range,onChange]);
+  const onDown=useCallback(e=>{if(locked)return;e.preventDefault();dragging.current=true;calc(e.clientX);const mv=ev=>{if(dragging.current)calc(ev.clientX)};const up=()=>{dragging.current=false;commit();window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",mv,{passive:true});window.addEventListener("pointerup",up)},[locked,calc,commit]);
+
+  const ticks=[0,0.25,0.5,0.75,1].map(f=>({v:min+range*f,p:f*100}));
+
+  return (
+    <div style={{padding:"28px 0 16px",opacity:locked?0.35:1,transition:"opacity 0.6s ease"}}>
+      <div style={{position:"relative",height:30,marginBottom:4}}>
+        <div style={{position:"absolute",left:`${pct}%`,transform:"translateX(-50%)",background:T.tooltipBg,color:T.tooltipText,padding:"5px 12px",borderRadius:8,fontSize:13,fontWeight:600,fontFamily:MONO,whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",transition:locked?`left 0.7s ${ease}`:"none",opacity:value>min?1:0}}>{fmtV(value,tp,cur)}</div>
+      </div>
+      <div ref={ref} onPointerDown={onDown} style={{position:"relative",height:44,cursor:locked?"default":"grab",display:"flex",alignItems:"center",touchAction:"none",userSelect:"none"}}>
+        <div style={{position:"absolute",left:0,right:0,height:4,borderRadius:2,background:T.track}}/>
+        {showAnswer&&(<div style={{position:"absolute",left:`${bandLeft}%`,width:`${bandRight-bandLeft}%`,height:20,top:12,borderRadius:4,background:`${T.green}18`,border:`1px solid ${T.green}30`,transition:`all 0.6s ${ease}`,pointerEvents:"none"}}/>)}
+        <div style={{position:"absolute",left:0,width:`${pct}%`,height:4,borderRadius:2,background:T.trackFill,transition:locked?`width 0.7s ${ease}`:"none",willChange:"width"}}/>
+        {showAnswer&&aPct!=null&&(
+          <div style={{position:"absolute",left:`${Math.max(3,Math.min(97,aPct))}%`,transform:"translateX(-50%)",transition:`left 0.7s ${ease}`,display:"flex",flexDirection:"column",alignItems:"center",zIndex:2,pointerEvents:"none",top:-8}}>
+            <div style={{fontSize:9,color:T.accent,fontWeight:700,fontFamily:MONO,letterSpacing:1.5,marginBottom:3}}>ANSWER</div>
+            <div style={{width:2,height:28,background:T.accent,borderRadius:1}}/>
+          </div>
+        )}
+        <div style={{position:"absolute",left:`calc(${pct}% - 16px)`,width:32,height:32,borderRadius:"50%",background:T.surface,boxShadow:`0 1px 4px rgba(0,0,0,0.15), 0 0 0 2px ${T.accent}`,transition:locked?`left 0.7s ${ease}`:"none",willChange:"left",zIndex:4,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{width:10,height:10,borderRadius:"50%",background:T.accent}}/>
+        </div>
+      </div>
+      <div style={{position:"relative",height:18,marginTop:4}}>
+        {ticks.map((tk,i)=>(<span key={i} style={{position:"absolute",left:`${tk.p}%`,transform:"translateX(-50%)",fontSize:10,color:T.textQuat,fontFamily:MONO,fontWeight:500}}>{fmtT(tk.v,tp,cur)}</span>))}
+      </div>
+    </div>
+  );
+}
+
+// ── Inline number input (first-class, always visible) ──────────
+function NumberInput({value,onChange,locked,tp,cur,qr,C:T}){
+  const inp=useRef(null);
+  const[focused,setFocused]=useState(false);
+  const[raw,setRaw]=useState("");
+
+  // Sync display when value changes externally (slider drag)
+  const lastExternal=useRef(value);
+  useEffect(()=>{
+    if(!focused&&value!==lastExternal.current){setRaw("");lastExternal.current=value}
+  },[value,focused]);
+
+  const displayVal=raw!==""?raw:(value>0?fmtN(tp==="price"&&cur==="USD"?value*EUR_USD:value):"0");
+
+  const commit=()=>{
+    let n=parseFloat(raw.replace(",","."));
+    if(!isNaN(n)&&n>=0){
+      if(tp==="price"&&cur==="USD")n/=EUR_USD;
+      onChange(Math.max(qr[0],Math.min(qr[1],n)));
+    }
+    setRaw("");
+  };
+
+  const prefix=tp==="price"?(cur==="EUR"?"€":"$"):"";
+  const suffix=tp==="pct"?"%":"";
+
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4,marginBottom:4}}>
+      {prefix&&<span style={{fontSize:24,color:T.textTer,fontFamily:MONO,fontWeight:600}}>{prefix}</span>}
+      <input
+        ref={inp}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        disabled={locked}
+        value={focused?raw:displayVal}
+        onFocus={()=>{setFocused(true);setRaw("")}}
+        onBlur={()=>{setFocused(false);commit()}}
+        onChange={e=>{const v=e.target.value.replace(/[^0-9.,]/g,"");setRaw(v)}}
+        onKeyDown={e=>{if(e.key==="Enter"){commit();inp.current?.blur()}}}
+        placeholder="0"
+        style={{
+          fontSize:32,fontWeight:700,color:locked?T.textTer:T.text,textAlign:"center",
+          border:"none",outline:"none",fontFamily:MONO,
+          width:Math.max(80,displayVal.length*20+20),maxWidth:200,
+          background:focused?T.inputBg:"transparent",
+          borderRadius:12,padding:"8px 12px",
+          transition:"all 0.2s",
+          boxShadow:focused?`0 0 0 2px ${T.accent}40`:"none",
+          opacity:locked?0.4:1,
+        }}
+      />
+      {suffix&&<span style={{fontSize:24,color:T.textTer,fontFamily:MONO,fontWeight:600}}>{suffix}</span>}
+    </div>
+  );
+}
+
+function Confetti({active}){
+  if(!active)return null;
+  const colors=["#D96B4A","#5D9E6F","#C4963A","#E8A87C","#85C1E9","#CB7E3D","#6DB57F","#D4A64A"];
+  return (<div style={{position:"absolute",top:-10,left:0,right:0,height:140,overflow:"hidden",pointerEvents:"none",zIndex:10}}>
+    {[...Array(40)].map((_,i)=>{const left=Math.random()*100;const delay=Math.random()*0.6;const dur=1.2+Math.random()*0.8;const size=4+Math.random()*6;
+      return (<div key={i} style={{position:"absolute",left:`${left}%`,top:0,width:size,height:size,borderRadius:Math.random()>0.5?"50%":"2px",background:colors[i%colors.length],opacity:0,animation:`confettiFall ${dur}s ease-out ${delay}s forwards`}}/>)})}
+  </div>);
+}
+
+function TierReveal({tierData,visible,info,isExact,C:T}){
+  if(!visible||!tierData)return null;
+  const tc=T[tierData.c];
+  return (
+    <div style={{textAlign:"center",padding:"24px 0 12px",position:"relative"}}>
+      <Confetti active={isExact}/>
+      {isExact?(
+        <div style={{animation:"exactGlow 0.6s cubic-bezier(0.22,1,0.36,1) forwards"}}>
+          <div style={{fontSize:52,marginBottom:4}}>💎</div>
+          <div style={{fontSize:24,fontWeight:800,fontFamily:FONT,letterSpacing:1,background:`linear-gradient(135deg,${T.accent},${T.gold})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>EXACT</div>
+          <div style={{fontSize:13,color:T.textSec,marginTop:6,fontFamily:FONT}}>You nailed it perfectly</div>
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:12}}>
+            {[...Array(5)].map((_,i)=>(<svg key={i} width="20" height="20" viewBox="0 0 16 16" style={{animation:`pop 0.3s ease ${0.3+i*0.08}s both`}}><path d="M8 1l2.2 4.4 4.8.7-3.5 3.4.8 4.9L8 12l-4.3 2.4.8-4.9L1 6.1l4.8-.7z" fill={T.gold}/></svg>))}
+          </div>
+        </div>
+      ):(
+        <div style={{animation:"pop 0.5s cubic-bezier(0.22,1,0.36,1) forwards"}}>
+          <div style={{fontSize:44,marginBottom:8}}>{tierData.e}</div>
+          <div style={{fontSize:20,fontWeight:700,color:tc,fontFamily:FONT,letterSpacing:-0.3}}>{tierData.l}</div>
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:12}}>
+            {[...Array(5)].map((_,i)=>(<svg key={i} width="18" height="18" viewBox="0 0 16 16" style={{transition:`all 0.3s ease ${i*0.08}s`,opacity:i<tierData.s?1:0.12,transform:i<tierData.s?"scale(1)":"scale(0.8)"}}><path d="M8 1l2.2 4.4 4.8.7-3.5 3.4.8 4.9L8 12l-4.3 2.4.8-4.9L1 6.1l4.8-.7z" fill={i<tierData.s?tc:T.textQuat}/></svg>))}
+          </div>
+        </div>
+      )}
+      {info&&!isExact&&(<div style={{fontSize:12,color:T.textTer,marginTop:12,fontFamily:MONO,fontWeight:500}}>{info.off}% off · bullseye {"<"}{info.bz}%</div>)}
+    </div>
+  );
+}
+
+function AnswerCard({q,cur,C:T}){
+  return (
+    <div style={{textAlign:"center",padding:"20px",background:T.surfaceAlt,borderRadius:16,border:`1px solid ${T.border}`,marginTop:16,animation:"slideUp 0.5s cubic-bezier(0.22,1,0.36,1) forwards"}}>
+      <div style={{fontSize:10,color:T.textTer,letterSpacing:2,fontFamily:MONO,fontWeight:600,marginBottom:8,textTransform:"uppercase"}}>{q.tp==="pct"?"Actual figure":q.tp==="count"?"Actual number":"Actual price"}</div>
+      <div style={{fontSize:36,fontWeight:700,color:T.accent,fontFamily:MONO,letterSpacing:-1}}>{fmtV(q.a,q.tp,cur)}</div>
+      {q.s&&<div style={{fontSize:11,color:T.textQuat,marginTop:8,fontFamily:FONT}}>{q.s}</div>}
+      {q.f&&(<div style={{fontSize:13,color:T.textSec,marginTop:14,padding:"12px 16px",background:T.surface,borderRadius:10,lineHeight:1.6,fontFamily:FONT,fontStyle:"italic",borderLeft:`3px solid ${T.accent}30`}}>{q.f}</div>)}
+    </div>
+  );
+}
+
+function Countdown({C:T}){
+  const[left,setLeft]=useState("");
+  useEffect(()=>{
+    const tick=()=>{
+      const bru=new Date().toLocaleString("en-GB",{timeZone:"Europe/Brussels",hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const[hh,mm,ss]=bru.split(":").map(Number);
+      const secLeft=(24*3600)-(hh*3600+mm*60+ss);
+      const h=Math.floor(secLeft/3600);const m=Math.floor((secLeft%3600)/60);const s=secLeft%60;
+      setLeft(`${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`);
+    };
+    tick();const id=setInterval(tick,1000);return()=>clearInterval(id);
+  },[]);
+  return (<div style={{fontSize:12,color:T.textTer,fontFamily:MONO,fontWeight:500,marginTop:8}}>Next puzzle in {left}</div>);
+}
+
+function StreakBadge({sk,C:T}){if(!sk||sk.c<1)return null;return (<span style={{display:"inline-flex",alignItems:"center",gap:4,background:T.accentSoft,borderRadius:20,padding:"4px 12px"}}><span style={{fontSize:12}}>🔥</span><span style={{fontSize:12,fontWeight:600,color:T.accent,fontFamily:MONO}}>{sk.c}</span></span>)}
+function StarCount({ss,C:T}){const tot=ss.reduce((a,s)=>a+s,0);if(!ss.length)return null;return (<span style={{display:"inline-flex",alignItems:"center",gap:5,background:T.goldBg,borderRadius:20,padding:"4px 12px",border:`1px solid ${T.gold}15`}}><svg width="13" height="13" viewBox="0 0 16 16"><path d="M8 1l2.2 4.4 4.8.7-3.5 3.4.8 4.9L8 12l-4.3 2.4.8-4.9L1 6.1l4.8-.7z" fill={T.gold}/></svg><span style={{fontSize:12,fontWeight:600,color:T.gold,fontFamily:MONO}}>{tot}</span></span>)}
+function Btn({onClick,children,variant="primary",C:T}){const p=variant==="primary";return (<button onClick={onClick} style={{width:"100%",padding:"18px 24px",borderRadius:16,border:p?"none":`1.5px solid ${T.border}`,background:p?T.accent:T.surface,color:p?"#fff":T.text,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:FONT,letterSpacing:0.3,transition:"all 0.2s",marginTop:20,boxShadow:p?"0 4px 20px rgba(217,107,74,0.2), 0 1px 3px rgba(217,107,74,0.1)":"0 1px 3px rgba(0,0,0,0.04)"}}>{children}</button>)}
+function TypeBadge({tp,C:T}){if(tp==="price")return null;const l=tp==="pct"?"Percentage":"Number";const c=tp==="pct"?T.gold:T.green;return (<span style={{fontSize:10,color:c,fontFamily:MONO,fontWeight:600,background:`${c}12`,padding:"3px 10px",borderRadius:6,letterSpacing:0.5}}>{l}</span>)}
+
+// ═══ PRACTICE MODE ═════════════════════════════════════════════
+function PracticeMode({cur,onExit,C:T}){
+  const[idx,setIdx]=useState(0);const[g,setG]=useState(0);const[lk,setLk]=useState(false);const[showT,setShowT]=useState(false);const[revA,setRevA]=useState(false);const[filter,setFilter]=useState("all");
+  const filtered=filter==="all"?BANK:BANK.filter(q=>q.tp===filter);const q=filtered[idx%filtered.length];
+  useEffect(()=>{setG(q.r[0]);setLk(false);setShowT(false);setRevA(false)},[idx,filter]);
+  const stars=calcScore(g,q.a,q.t,q.r);const ct=tier(stars);const off=Math.round(Math.abs(g-q.a)/Math.max(q.a,0.001)*100);
+  const lock=()=>{setLk(true);setTimeout(()=>setRevA(true),300);setTimeout(()=>setShowT(true),700)};
+  useEffect(()=>{const h=e=>{if(e.key==="Enter"&&!lk)lock()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h)},[lk,g]);
+  return (
+    <div style={{animation:"fadeUp 0.3s ease",paddingTop:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{display:"flex",gap:4}}>{["all","price","pct","count"].map(f=>(<button key={f} onClick={()=>{setFilter(f);setIdx(0)}} style={{padding:"5px 12px",borderRadius:8,border:"none",cursor:"pointer",background:filter===f?T.accent:T.surfaceAlt,color:filter===f?"#fff":T.textTer,fontSize:11,fontWeight:600,fontFamily:MONO,transition:"all 0.15s"}}>{f==="all"?"All":f==="pct"?"%":f==="count"?"#":"€"}</button>))}</div>
+        <button onClick={onExit} style={{background:"none",border:"none",color:T.textTer,fontSize:12,cursor:"pointer",fontFamily:FONT,fontWeight:600,textDecoration:"underline",textDecorationColor:T.textQuat}}>Exit</button>
+      </div>
+      <div style={{fontSize:11,color:T.textQuat,fontFamily:MONO,marginBottom:20}}>{(idx%filtered.length)+1}/{filtered.length} · tol:{q.t}%</div>
+      <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:4}}><span style={{fontSize:28,lineHeight:1,marginTop:2,flexShrink:0}}>{q.i}</span><div><TypeBadge tp={q.tp} C={T}/><h2 style={{fontSize:21,fontWeight:600,lineHeight:1.5,margin:"4px 0 0",color:T.text,fontFamily:FONT}}>{q.q}</h2></div></div>
+      <EstimateSlider min={q.r[0]} max={q.r[1]} value={g} onChange={v=>{if(!lk)setG(v)}} locked={lk} answer={q.a} showAnswer={revA} tp={q.tp} cur={cur} tolerance={q.t} C={T}/>
+      <NumberInput value={g} onChange={v=>{if(!lk)setG(Math.max(q.r[0],Math.min(q.r[1],v)))}} locked={lk} tp={q.tp} cur={cur} qr={q.r} C={T}/>
+      {revA&&<AnswerCard q={q} cur={cur} C={T}/>}
+      <TierReveal tierData={ct} visible={showT} info={{off,bz:Math.round(q.t*0.5)}} isExact={off===0&&lk} C={T}/>
+      {!lk&&<Btn onClick={lock} C={T}>Lock in</Btn>}
+      {showT&&(<div style={{display:"flex",gap:10,marginTop:20}}><button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0} style={{flex:1,padding:"16px",borderRadius:14,border:`1.5px solid ${T.border}`,background:T.surface,color:idx===0?T.textQuat:T.text,fontSize:14,fontWeight:600,cursor:idx===0?"default":"pointer",fontFamily:FONT}}>Previous</button><button onClick={()=>setIdx(i=>i+1)} style={{flex:1,padding:"16px",borderRadius:14,border:"none",background:T.accent,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:FONT}}>Next</button></div>)}
+    </div>
+  );
+}
+
+// ═══ SHARE CARD ════════════════════════════════════════════════
+function MiniSlider({q,guess,score,exact,C:T}){
+  const t=tier(score);const tc=T[t.c];
+  const range=q.r[1]-q.r[0]||1;
+  const gPct=Math.max(0,Math.min(100,((guess-q.r[0])/range)*100));
+  const aPct=Math.max(0,Math.min(100,((q.a-q.r[0])/range)*100));
+  const overlap=Math.abs(gPct-aPct)<3;
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:10,background:exact?`${T.gold}12`:T[t.bg],borderRadius:14,padding:"12px 14px",border:exact?`1px solid ${T.gold}30`:"1px solid transparent"}}>
+      <span style={{fontSize:18,width:24,textAlign:"center",flexShrink:0}}>{q.i}</span>
+      <div style={{flex:1,position:"relative",height:24,display:"flex",alignItems:"center"}}>
+        {/* Track */}
+        <div style={{position:"absolute",left:0,right:0,height:3,borderRadius:2,background:T.track}}/>
+        {/* Gap line between guess and answer */}
+        {!overlap&&<div style={{position:"absolute",left:`${Math.min(gPct,aPct)}%`,width:`${Math.abs(aPct-gPct)}%`,height:3,borderRadius:2,background:`${tc}40`}}/>}
+        {/* Answer dot */}
+        <div style={{position:"absolute",left:`${aPct}%`,transform:"translateX(-50%)",width:exact?12:10,height:exact?12:10,borderRadius:"50%",background:exact?T.gold:T.accent,boxShadow:exact?`0 0 6px ${T.gold}60`:"none",zIndex:2}}/>
+        {/* Guess dot */}
+        {!overlap&&<div style={{position:"absolute",left:`${gPct}%`,transform:"translateX(-50%)",width:8,height:8,borderRadius:"50%",background:T.surface,border:`2px solid ${tc}`,zIndex:1}}/>}
+      </div>
+      <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{exact?"💎":t.e}</span>
+      <div style={{display:"flex",gap:2,flexShrink:0}}>{[...Array(5)].map((_,j)=>(<svg key={j} width="9" height="9" viewBox="0 0 16 16" style={{opacity:j<score?1:0.1}}><path d="M8 1l2.2 4.4 4.8.7-3.5 3.4.8 4.9L8 12l-4.3 2.4.8-4.9L1 6.1l4.8-.7z" fill={j<score?(exact?T.gold:tc):T.textQuat}/></svg>))}</div>
+    </div>
+  );
+}
+
+function ShareCard({ss,qs,sk,guesses,C:T}){
+  const dn=dayNum();const tot=ss.reduce((a,s)=>a+s,0);
+  const isExact=i=>Math.round(Math.abs((guesses[i]||0)-qs[i].a)/Math.max(qs[i].a,0.001)*100)===0;
+
+  const qualifier=tot>=24?"Savant":tot>=20?"Expert":tot>=15?"Sharp":tot>=10?"Decent":tot>=5?"Rough":"Clueless";
+  const txt=`Estimate #${dn} · ${qualifier} · ⭐ ${tot}/25${sk?.c>1?` · 🔥${sk.c}`:""}
+estimate.io`;
+
+  const[cp,setCp]=useState(false);const copy=()=>{navigator.clipboard.writeText(txt).then(()=>{setCp(true);setTimeout(()=>setCp(false),2500)})};
+
+  // Also show qualifier in the card
+  const qColor=tot>=20?T.green:tot>=15?T.gold:tot>=10?T.orange:T.red;
+  return (
+    <div style={{background:T.surface,borderRadius:24,padding:"36px 28px",marginTop:28,border:`1px solid ${T.borderLight}`,boxShadow:"0 4px 24px rgba(0,0,0,0.06)",animation:"fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) forwards"}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{fontSize:12,color:T.accent,letterSpacing:4,fontWeight:600,fontFamily:MONO}}>ESTIMATE #{dn}</div>
+        <div style={{fontSize:56,fontWeight:800,color:T.text,marginTop:8,fontFamily:FONT,letterSpacing:-2}}>{tot}<span style={{fontSize:20,color:T.textQuat,fontWeight:500,letterSpacing:0}}> / 25</span></div>
+        <div style={{fontSize:14,fontWeight:700,color:qColor,fontFamily:FONT,marginTop:6,letterSpacing:0.5}}>{qualifier}</div>
+        <div style={{display:"flex",justifyContent:"center",gap:3,marginTop:12}}>{[...Array(25)].map((_,i)=>(<svg key={i} width="11" height="11" viewBox="0 0 16 16" style={{opacity:i<tot?1:0.1,transition:`opacity 0.3s ease ${i*0.03}s`}}><path d="M8 1l2.2 4.4 4.8.7-3.5 3.4.8 4.9L8 12l-4.3 2.4.8-4.9L1 6.1l4.8-.7z" fill={i<tot?T.gold:T.textQuat}/></svg>))}</div>
+        {sk?.c>1&&<div style={{marginTop:16}}><StreakBadge sk={sk} C={T}/></div>}
+        <Countdown C={T}/>
+      </div>
+      {/* Mini slider legend */}
+      <div style={{display:"flex",justifyContent:"center",gap:16,marginBottom:14,fontSize:10,color:T.textTer,fontFamily:MONO}}>
+        <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:T.surface,border:`2px solid ${T.textTer}`}}/> You</span>
+        <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:T.accent}}/> Answer</span>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:32}}>
+        {ss.map((s,i)=>(<MiniSlider key={i} q={qs[i]} guess={guesses[i]||0} score={s} exact={isExact(i)} C={T}/>))}
+      </div>
+      <button onClick={copy} style={{width:"100%",padding:"18px",borderRadius:16,border:"none",background:cp?T.green:T.accent,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:FONT,transition:"all 0.3s",letterSpacing:0.5,boxShadow:cp?"none":"0 4px 20px rgba(217,107,74,0.2)"}}>{cp?"Copied ✓":"Share result"}</button>
+    </div>
+  );
+}
+
+// ═══ MAIN ══════════════════════════════════════════════════════
+function Estimate(){
+  const qs=useRef(dailyQs()).current;
+  const[dark,setDark]=useState(false);
+  const T=dark?DARK:LIGHT;
+  const[phase,setPhase]=useState("playing");
+  const[rd,setRd]=useState(0);const[g,setG]=useState(0);
+  const[lk,setLk]=useState(false);const[showT,setShowT]=useState(false);const[revA,setRevA]=useState(false);
+  const[ss,setSs]=useState([]);const[guesses,setGuesses]=useState([]);
+  const[sk,setSk]=useState(getSk());const[cur,setCur]=useState("EUR");
+  const[showHelp,setShowHelp]=useState(false);
+
+  const tapCount=useRef(0);const tapTimer=useRef(null);
+  const handleDayTap=()=>{tapCount.current++;clearTimeout(tapTimer.current);tapTimer.current=setTimeout(()=>{tapCount.current=0},1500);if(tapCount.current>=5){tapCount.current=0;setPhase("practice")}};
+
+  const q=qs[rd];
+  useEffect(()=>{if(q)setG(q.r[0])},[rd]);
+
+  const hG=v=>{if(!lk&&q)setG(Math.max(q.r[0],Math.min(q.r[1],v)))};
+  const lock=useCallback(()=>{if(lk)return;setLk(true);setSs(p=>[...p,calcScore(g,q.a,q.t,q.r)]);setGuesses(p=>[...p,g]);setTimeout(()=>setRevA(true),400);setTimeout(()=>setShowT(true),1000)},[lk,g,q]);
+  const next=()=>{if(rd>=4){setSk(updSk());setPhase("results")}else{setRd(r=>r+1);setLk(false);setShowT(false);setRevA(false)}};
+
+  // Enter key to lock in
+  useEffect(()=>{const h=e=>{if(e.key==="Enter"&&phase==="playing"&&!lk)lock()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h)},[phase,lk,lock]);
+
+  const cs=lk&&ss.length?ss[ss.length-1]:0;const ct=lk?tier(cs):null;
+  const off=q&&g!=null?Math.round(Math.abs(g-q.a)/Math.max(q.a,0.001)*100):0;
+
+  return (
+    <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:FONT,display:"flex",flexDirection:"column",alignItems:"center",padding:"0 20px",transition:"background 0.3s, color 0.3s"}}>
+      <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Source+Code+Pro:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet"/>
+      <style>{`
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+        @keyframes exactGlow{0%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}
+        @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(120px) rotate(720deg);opacity:0}}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+        input[type=number]{-moz-appearance:textfield}
+      `}</style>
+
+      <div style={{textAlign:"center",padding:"32px 0 12px",width:"100%",maxWidth:460}}>
+        <h1 style={{fontSize:28,fontWeight:800,margin:0,color:T.text,fontFamily:FONT,letterSpacing:-0.5,textTransform:"uppercase"}}>Estimate</h1>
+        <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:10,marginTop:10,flexWrap:"wrap"}}>
+          <span onClick={handleDayTap} style={{fontSize:11,color:T.textQuat,fontFamily:MONO,fontWeight:600,cursor:"default",userSelect:"none",letterSpacing:1}}>#{dayNum()}</span>
+          <StreakBadge sk={sk} C={T}/><StarCount ss={ss} C={T}/>
+          {(phase==="playing"||phase==="practice")&&<CurrencySwitch cur={cur} set={setCur} C={T}/>}
+        </div>
+
+        {phase==="playing"&&(
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:16}}>
+            {[0,1,2,3,4].map(i=>{const done=i<ss.length;const t=done?tier(ss[i]):null;return (<div key={i} style={{width:48,height:4,borderRadius:2,background:done?T[t.c]:i===rd?T.accent:T.track,transition:"all 0.5s cubic-bezier(0.22,1,0.36,1)"}}/>)})}
+          </div>
+        )}
+      </div>
+
+      <div style={{width:"100%",maxWidth:460,flex:1,paddingBottom:48}}>
+        {phase==="practice"&&<PracticeMode cur={cur} onExit={()=>setPhase("playing")} C={T}/>}
+
+        {phase==="playing"&&q&&(
+          <div style={{marginTop:28,animation:"fadeUp 0.4s cubic-bezier(0.22,1,0.36,1)"}} key={rd}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:12,color:T.textQuat,fontFamily:MONO,fontWeight:600,letterSpacing:1}}>{rd+1} of 5</span>
+              <TypeBadge tp={q.tp} C={T}/>
+            </div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:4}}>
+              <span style={{fontSize:28,lineHeight:1,marginTop:2,flexShrink:0}}>{q.i}</span>
+              <h2 style={{fontSize:23,fontWeight:600,lineHeight:1.45,margin:0,color:T.text,fontFamily:FONT,letterSpacing:-0.3}}>{q.q}</h2>
+            </div>
+            <EstimateSlider min={q.r[0]} max={q.r[1]} value={g??0} onChange={hG} locked={lk} answer={q.a} showAnswer={revA} tp={q.tp} cur={cur} tolerance={q.t} C={T}/>
+            <NumberInput value={g??0} onChange={hG} locked={lk} tp={q.tp} cur={cur} qr={q.r} C={T}/>
+            {revA&&<AnswerCard q={q} cur={cur} C={T}/>}
+            <TierReveal tierData={ct} visible={showT} info={{off,bz:Math.round(q.t*0.5)}} isExact={off===0&&lk} C={T}/>
+            {!lk&&<Btn onClick={lock} C={T}>Lock in</Btn>}
+            {showT&&<Btn onClick={next} variant="secondary" C={T}>{rd>=4?"See results":"Next question →"}</Btn>}
+          </div>
+        )}
+
+        {phase==="results"&&<ShareCard ss={ss} qs={qs} sk={sk} guesses={guesses} C={T}/>}
+      </div>
+
+      {/* Footer controls */}
+      <div style={{width:"100%",maxWidth:460,padding:"16px 0 24px",display:"flex",justifyContent:"center",alignItems:"center",gap:12}}>
+        <button onClick={()=>setShowHelp(h=>!h)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textQuat,fontFamily:FONT,fontWeight:500,textDecoration:"underline",textDecorationColor:T.textQuat+"60",textUnderlineOffset:3,padding:"4px 8px"}}>How to play</button>
+        <span style={{color:T.textQuat,fontSize:10}}>·</span>
+        <ThemeToggle dark={dark} set={setDark} C={T}/>
+      </div>
+
+      {showHelp&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.4)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeUp 0.2s ease"}} onClick={()=>setShowHelp(false)}>
+          <div style={{background:T.surface,borderRadius:20,padding:"28px 24px",maxWidth:400,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:18,fontWeight:700,color:T.text,fontFamily:FONT,marginBottom:16}}>How to play</div>
+            <div style={{fontSize:14,color:T.textSec,lineHeight:1.7,fontFamily:FONT}}><strong style={{color:T.text}}>5 daily questions.</strong> Slide or type to estimate prices, percentages, and counts. Press <strong style={{color:T.text}}>Enter</strong> or tap Lock in. Well-known facts demand precision. Obscure ones give more room.</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:16}}>{TIERS.map((t,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:T[t.bg],borderRadius:8,fontSize:12,color:T[t.c],fontFamily:FONT,fontWeight:600}}>{t.e} {t.l}</div>))}</div>
+            <button onClick={()=>setShowHelp(false)} style={{width:"100%",marginTop:20,padding:"14px",borderRadius:12,border:"none",background:T.surfaceAlt,color:T.text,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:FONT}}>Got it</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Estimate));
+</script>
+</body>
+</html>
